@@ -19,6 +19,7 @@
 - name: configure neutron external services failover
   template: src=etc/ipchanged/add_floating_ip mode=0755
             dest=/etc/ipchanged/{{ ansible_default_ipv4.interface }}/{{ floating_ip }}/add
+  when: not controller_as_gateway.enabled|bool
 
 # Send gratuitous on internal floating IP failover
 - name: configure neutron internal services failover
