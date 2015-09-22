@@ -89,9 +89,51 @@ monitoring:
       role: admin
 
 openstack:
-  pypi_mirror: https://pypi.python.org/simple/
+  pypi_mirror: http://pypi-mirror.openstack.blueboxgrid.com/root/pypi
+  easy_install_mirror: http://pypi-mirror.openstack.blueboxgrid.com/root/pypi/+simple
+  pip_trusted: pypi-mirror.openstack.blueboxgrid.com
+  gem_sources:
+    - http://gem-mirror.openstack.blueboxgrid.com
   git_mirror:  https://github.com/openstack
   git_update: yes
+  ubuntu_mirror: http://apt-mirror.openstack.blueboxgrid.com/archive.ubuntu.com/ubuntu
+
+apt_repos:
+  docker:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/docker/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/docker.key
+  bbg_ubuntu:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/bbg_ubuntu/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/bbg_ubuntu.key
+  blueboxcloud_giftwrap:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/blueboxcloud_giftwrap/blueboxcloud/giftwrap/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/blueboxcloud_giftwrap.key
+  hwraid:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/hwraid/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/hwraid.key
+  sensu:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/sensu/apt
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/sensu.key
+  haproxy:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/haproxy/vbernat/haproxy-1.5/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/haproxy.key
+  bbg_openstack_ppa:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/bbg_openstack_ppa/blueboxgroup/openstack/ubuntu
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/bbg_openstack_ppa.key
+  percona:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/percona/apt
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/percona.key
+  rabbitmq:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/rabbitmq/debian
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/rabbitmq.key
+  cloud_archive:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/cloud_archive/ubuntu
+  erlang:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/erlang/debian
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/erlang.key
+  ceph:
+    repo: http://apt-mirror.openstack.blueboxgrid.com/ceph/debian-
+    key_url: http://apt-mirror.openstack.blueboxgrid.com/keys/ceph.key
 
 client:
   self_signed_cert: true
