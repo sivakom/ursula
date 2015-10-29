@@ -60,9 +60,3 @@
            -o /etc/ceph/ceph.{{ item.name }}.keyring
            creates=/etc/ceph/ceph.{{ item.name }}.keyring
   with_items: ceph_monitor.openstack_keys
-
-- include: monitoring.yml
-  tags:
-    - monitoring
-    - common
-  when: monitoring.enabled|default('True')|bool

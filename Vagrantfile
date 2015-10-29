@@ -1,111 +1,101 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
-VAGRANTFILE_API_VERSION = "2"
+require 'yaml'
+VAGRANTFILE_API_VERSION = '2'
 
-NUM_CONTROLLERS = ENV['URSULA_NUM_CONTROLLERS'] || 2
-NUM_COMPUTES = ENV['URSULA_NUM_COMPUTES'] || 1
-NUM_SWIFT_NODES = ENV['URSULA_NUM_SWIFT_NODES'] || 3
-BOX_URL = ENV['URSULA_BOX_URL'] || 'http://opscode-vm-bento.s3.amazonaws.com/vagrant/virtualbox/opscode_ubuntu-14.04_chef-provisionerless.box'
-BOX_NAME = ENV['URSULA_BOX_NAME'] || 'ubuntu-trusty'
+config_file=File.expand_path(File.join(File.dirname(__FILE__), 'vagrant_variables.yml'))
+settings=YAML.load_file(config_file)
 
-if File.file?('.vagrant/vagrant.yml')
-  SETTINGS_FILE = ENV['SETTINGS_FILE'] || '.vagrant/vagrant.yml'
-else
-  SETTINGS_FILE = ENV['SETTINGS_FILE'] || 'vagrant.yml'
+NMONS      = settings['mon_vms']
+NOSDS      = settings['osd_vms']
+SUBNET     = settings['subnet']
+BOX        = settings['vagrant_box']
+MEMORY     = settings['memory']
+STORAGECTL = settings['vagrant_storagectl']
+
+ansible_provision = proc do |ansible|
+  ansible.playbook = 'site.yml'
+  # Note: Can't do ranges like mon[0-2] in groups because
+  # these aren't supported by Vagrant, see
+  # https://github.com/mitchellh/vagrant/issues/3539
+  ansible.groups = {
+    'ceph_monitors'    => (0..NMONS - 1).map { |j| "mon#{j}" },
+    'ceph_osds'        => (0..NOSDS - 1).map { |j| "osd#{j}" }
+  }
+
+  # In a production deployment, these should be secret
+  ansible.extra_vars = {
+    ceph_stable: 'true',
+    journal_collocation: 'true',
+    fsid: '4a158d27-f750-41d5-9e7f-26ce4c9d2d45',
+    monitor_secret: 'AQAWqilTCDh7CBAAawXt6kyTgLFCxSvJhTEmuw==',
+    journal_size: 100,
+    monitor_interface: 'eth1',
+    cluster_network: "#{SUBNET}.0/24",
+    public_network: "#{SUBNET}.0/24",
+    devices: "[ '/dev/sdb', '/dev/sdc', '/dev/sdd' ]",
+  }
+  ansible.limit = 'all'
 end
 
-require 'yaml'
-
-SETTINGS = YAML.load_file SETTINGS_FILE
+def create_vmdk(name, size)
+  dir = Pathname.new(__FILE__).expand_path.dirname
+  path = File.join(dir, '.vagrant', name + '.vmdk')
+  `vmware-vdiskmanager -c -s #{size} -t 0 -a scsi #{path} \
+   2>&1 > /dev/null` unless File.exist?(path)
+end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = BOX
+  config.ssh.insert_key = false # workaround for https://github.com/mitchellh/vagrant/issues/5048
 
-  config.vm.box = BOX_NAME
-  config.vm.box_url = BOX_URL
-  config.vm.provider "virtualbox" do |v|
-    v.memory = SETTINGS['default']['memory']
-    v.cpus = SETTINGS['default']['cpus']
-  end
-
-  if Vagrant.has_plugin?('vagrant-openstack-provider')
-    require 'vagrant-openstack-provider'
-    config.vm.provider :openstack do |os, override|
-      os.openstack_auth_url = "#{ENV['OS_AUTH_URL']}/tokens"
-      os.username           = ENV['OS_USERNAME']
-      os.password           = ENV['OS_PASSWORD']
-      os.tenant_name        = ENV['OS_TENANT_NAME']
-      os.flavor             = 'm1.small'
-      os.image              = 'ubuntu-14.04'
-      os.openstack_network_url = ENV['OS_NEUTRON_URL'] if ENV['OS_NEUTRON_URL']
-      os.networks           =  ['internal']
-      os.security_groups    = ['vagrant']
-      os.floating_ip_pool   = 'external'
-      override.vm.box       = 'openstack'
-      override.ssh.username = 'ubuntu'
-    end
-  end
-
-  config.ssh.forward_agent = true
-
-  SETTINGS['vms'].each do |name, vm|
-    config.vm.define name do |c|
-      c.vm.hostname = "#{name}.ursula"
-      if vm.has_key?('ip_address')
-        if vm['ip_address'].kind_of?(Array)
-          vm['ip_address'].each do |ip|
-            c.vm.network :private_network, ip: ip
-          end
-        else
-          c.vm.network :private_network, ip: vm['ip_address']
-        end
+  (0..NMONS - 1).each do |i|
+    config.vm.define "mon#{i}" do |mon|
+      mon.vm.hostname = "ceph-mon#{i}"
+      mon.vm.network :private_network, ip: "#{SUBNET}.1#{i}"
+      mon.vm.provider :virtualbox do |vb|
+        vb.customize ['modifyvm', :id, '--memory', "#{MEMORY}"]
       end
-      if vm.has_key?('memory') || vm.has_key?('cpus')
-        c.vm.provider "virtualbox" do |v|
-          v.memory = vm['memory'] if vm.has_key?('memory')
-          v.cpus = vm['cpus'] if vm.has_key?('cpus')
-          if vm.has_key?('custom')
-            if vm['custom'].kind_of?(Array)
-              vm['custom'].each do |custom|
-                v.customize eval(custom)
-              end
-            else
-              v.customize eval(vm['custom'])
-            end
-          end
-        end
-        c.vm.provider "libvirt" do |v|
-          v.memory = vm['memory'] if vm.has_key?('memory')
-          v.cpus = vm['cpus'] if vm.has_key?('cpus')
-          if vm.has_key?('custom')
-            if vm['custom'].kind_of?(Array)
-              vm['custom'].each do |custom|
-                v.customize eval(custom)
-              end
-            else
-              v.customize eval(vm['custom'])
-            end
-          end
-          v.nested = true
-        end
-
+      mon.vm.provider :vmware_fusion do |v|
+        v.vmx['memsize'] = "#{MEMORY}"
       end
     end
   end
 
-  config.vm.define "workstation" do |workstation_config|
-    workstation_config.vm.hostname = "workstation.ursula"
-    workstation_config.vm.provider "virtualbox" do |v|
-      v.memory = 1024
-    end
-    workstation_config.vm.provider "libvirt" do |v|
-      v.memory = 1024
-    end
-     config.vm.provision :shell, path: "bootstrap.sh"
-    if File.exist?("#{ENV['HOME']}/.stackrc")
-      workstation_config.vm.provision "file", source: "~/.stackrc", destination: ".stackrc"
+  (0..NOSDS - 1).each do |i|
+    config.vm.define "osd#{i}" do |osd|
+      osd.vm.hostname = "ceph-osd#{i}"
+      osd.vm.network :private_network, ip: "#{SUBNET}.10#{i}"
+      osd.vm.network :private_network, ip: "#{SUBNET}.20#{i}"
+      osd.vm.provider :virtualbox do |vb|
+        (0..2).each do |d|
+          vb.customize ['createhd',
+                        '--filename', "disk-#{i}-#{d}",
+                        '--size', '11000']
+          # Controller names are dependent on the VM being built.
+          # It is set when the base box is made in our case ubuntu/trusty64.
+          # Be careful while changing the box.
+          vb.customize ['storageattach', :id,
+                        '--storagectl', STORAGECTL,
+                        '--port', 3 + d,
+                        '--device', 0,
+                        '--type', 'hdd',
+                        '--medium', "disk-#{i}-#{d}.vdi"]
+        end
+        vb.customize ['modifyvm', :id, '--memory', "#{MEMORY}"]
+      end
+      osd.vm.provider :vmware_fusion do |v|
+        (0..2).each do |d|
+          v.vmx["scsi0:#{d + 1}.present"] = 'TRUE'
+          v.vmx["scsi0:#{d + 1}.fileName"] =
+            create_vmdk("disk-#{i}-#{d}", '11000MB')
+        end
+        v.vmx['memsize'] = "#{MEMORY}"
+      end
+
+      # Run the provisioner after the last machine comes up
+      osd.vm.provision 'ansible', &ansible_provision if i == (NOSDS - 1)
     end
   end
-
 end

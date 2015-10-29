@@ -71,9 +71,3 @@
   notify:
     - restart ceph mons
     - restart ceph osds
-
-- include: logging.yml
-  tags:
-    - logrotate
-    - logging
-  when: logging.enabled|default('True')|bool

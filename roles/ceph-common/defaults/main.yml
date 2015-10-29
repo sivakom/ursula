@@ -1,10 +1,11 @@
 ---
 ceph:
+  undercloud_cidr: '192.168.42.0/24'
   enabled: false
-  #disks:
-  #  - sdb
-  #  - sdc
-  #  - sdd
+  disks:
+   - sdb
+   - sdc
+   - sdd
 
   ###########
   # INSTALL #
@@ -20,7 +21,7 @@ ceph:
     - ceph
     - ceph-common
 
-  ceph_version: v0.94.3
+  ceph_version: v0.94.5
   stable_release: hammer
 
   ######################
@@ -73,7 +74,7 @@ ceph:
 
   ## OSD options
   #
-  journal_size: 10000 # 10 GB
+  journal_size: 100 # 100 MB
   pool_name: default
   pool_default_size: 3
   pool_default_min_size: 2
