@@ -36,6 +36,12 @@
            --keyring /var/lib/ceph/tmp/keyring.mon.{{ ansible_hostname }}
            creates=/var/lib/ceph/mon/ceph-{{ ansible_hostname }}/keyring
 
+- name: create ceph.log file in /var/log/ceph
+  file: dest=/var/log/ceph/ceph.log state=touch mode=0644 owner=root group=adm
+
+- name: create ceph.audit.log file in /var/log/ceph
+  file: dest=/var/log/ceph/ceph.audit.log state=touch mode=0644 owner=root group=adm
+
 - name: activate monitor with upstart
   file: path=/var/lib/ceph/mon/ceph-{{ ansible_hostname }}/{{ item }}
         state=touch
