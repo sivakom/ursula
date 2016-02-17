@@ -34,7 +34,7 @@ ansible_provision = proc do |ansible|
     monitor_interface: 'eth1',
     cluster_network: "#{SUBNET}.0/24",
     public_network: "#{SUBNET}.0/24",
-    devices: "[ '/dev/sdb', '/dev/sdc', '/dev/sdd' ]",
+    devices: "[ '/dev/sdb', '/dev/sdc', '/dev/sdd', '/dev/sde' ]",
   }
   ansible.limit = 'all'
 end
@@ -69,7 +69,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       osd.vm.network :private_network, ip: "#{SUBNET}.10#{i}"
       osd.vm.network :private_network, ip: "#{SUBNET}.20#{i}"
       osd.vm.provider :virtualbox do |vb|
-        (0..2).each do |d|
+        (0..3).each do |d|
           vb.customize ['createhd',
                         '--filename', "disk-#{i}-#{d}",
                         '--size', '11000']
@@ -86,7 +86,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         vb.customize ['modifyvm', :id, '--memory', "#{MEMORY}"]
       end
       osd.vm.provider :vmware_fusion do |v|
-        (0..2).each do |d|
+        (0..3).each do |d|
           v.vmx["scsi0:#{d + 1}.present"] = 'TRUE'
           v.vmx["scsi0:#{d + 1}.fileName"] =
             create_vmdk("disk-#{i}-#{d}", '11000MB')

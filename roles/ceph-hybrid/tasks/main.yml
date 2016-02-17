@@ -1,0 +1,45 @@
+---
+- name: verify disks have been provided
+  fail: msg="please provide osd hybrid disks"
+  when: ceph.disks is not defined
+
+- name: install dependencies
+  apt: pkg={{ item }}
+       state=present
+  with_items: ceph.hybrid_pkgs
+
+- name: make the label for the bcache device
+  command: parted --script /dev/{{ ceph.bcache_SSD_device }} mklabel gpt
+
+# can have four or six disks in ceph.disks
+# partition the huge 1.2 TB ssd disk into 6 10gb partitions with the rest in bcache
+- name: creating 1gb partitions
+  command: parted --script /dev/{{ ceph.bcache_SSD_device }} mkpart journal {{ item + 1 }}MiB {{ item + 1000 }}MiB
+  with_items:
+    - [ 0.1, 1000, 2000, 3000, 4000, 5000]
+  when: item < {{ ceph.disks|length * 1000 }}
+
+- name: make last partition for the device
+  command: parted --script /dev/{{ ceph.bcache_SSD_device }} mkpart bcache {{ ceph.disks|length * 1000 + 1 }}MiB 100%
+
+- name: make last partition a cache device
+  command: make-bcache -C /dev/{{ ceph.bcache_SSD_device }}{{ ceph.disks|length + 1 }}
+
+# won't make all of the device's bcache partitions at once, had to reboot the machine
+# to get them to appear. this in turn will fail the two plays below. Whaaaattt
+- name: make the sata drives as backing devices for cache
+  command: make-bcache -B /dev/{{ item }}
+  with_items: ceph.disks
+
+# this will persist through reboots
+- name: set writeback cachemode
+  shell: echo writeback > /sys/block/bcache{{ item }}/bcache/cache_mode
+  with_sequence: start=0 end={{ ceph.disks|length - 1 }}
+
+- name: determine bcache device UUID
+  shell: bcache-super-show /dev/{{ ceph.bcache_SSD_device }}{{ ceph.disks|length + 1 }}| grep cset.uuid | awk '{print $2}'
+  register: bcache_UUID
+
+- name: set writeback cachemode
+  shell: echo {{ bcache_UUID.stdout }} > /sys/block/bcache{{ item }}/bcache/attach
+  with_sequence: start=0 end={{ ceph.disks|length - 1 }}

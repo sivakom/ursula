@@ -1,9 +1,5 @@
 ---
 dependencies:
-  - role: monitoring-common
-  - role: logging-config
-    service: ceph
-    logdata: "{{ ceph.logs }}"
   - role: apt-repos
     repos:
       - repo: 'deb {{ apt_repos.ceph.repo }}{{ ceph.stable_release }}/ {{ ansible_lsb.codename }} main'

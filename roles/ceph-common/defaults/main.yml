@@ -2,6 +2,7 @@
 ceph:
   undercloud_cidr: '192.168.42.0/24'
   enabled: false
+  bcache_SSD_device: sde
   disks:
    - sdb
    - sdc
@@ -20,6 +21,10 @@ ceph:
   ceph_pkgs:
     - ceph
     - ceph-common
+
+  hybrid_pkgs:
+    - bcache-tools
+    - parted
 
   ceph_version: v0.94.5
   stable_release: hammer
